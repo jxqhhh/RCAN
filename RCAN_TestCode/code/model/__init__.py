@@ -54,10 +54,7 @@ class Model(nn.Module):
             return self.model(x)
 
     def get_model(self):
-        if self.n_GPUs == 1:
-            return self.model
-        else:
-            return self.model.module
+        return self.model
 
     def state_dict(self, **kwargs):
         target = self.get_model()
