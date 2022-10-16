@@ -1,6 +1,10 @@
-import model
+import os
 import argparse
+import torch
+import sys
+sys.path.append("../RCAN_TestCode/code")
 import utility
+import model
 
 parser=argparse.ArgumentParser()
 args=parser.parse_args()
@@ -36,8 +40,10 @@ m=model.Model(args,checkpoint)
 input_shape = [1, 3, 256, 256]
 input_data = torch.randn(input_shape)
 script_model = torch.jit.trace(m.model, input_data)
-mkdir -p dlc/pt
-script_model.save("./dlc/pt/RCAN_BIX2.pt")
+target_dir = "./dlc/pt"
+if not os.path.exists(target_dir):
+    os.makedirs(target_dir)
+script_model.save(os.path.join(target_dir,"RCAN_BIX2.pt"))
 
 # optional:
 #from DNN_printer import DNN_printer
