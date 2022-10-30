@@ -9,10 +9,10 @@ import model
 parser=argparse.ArgumentParser()
 args=parser.parse_args()
 args.model='RCAN'
-args.n_resgroups=10
-args.n_resblocks=20
-args.n_feats=64
-args.pre_train="../RCAN_TestCode/model/RCAN_BIX2.pt"
+args.n_resgroups=3
+args.n_resblocks=3
+args.n_feats=16
+args.pre_train="."#"../RCAN_TestCode/model/RCAN_BIX2.pt"
 args.test_only=True
 args.load='.'
 args.save='RCAN'

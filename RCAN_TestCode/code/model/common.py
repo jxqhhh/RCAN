@@ -55,6 +55,21 @@ class ResBlock(nn.Module):
 
         return res
 
+class PixelShuffle(nn.Module):
+
+    def __init__(self, scale):
+        super(PixelShuffle, self).__init__()
+        self.scale=scale
+
+    def forward(self, x):
+        y=x
+        B, iC, iH, iW = y.shape
+        oC, oH, oW = iC//(self.scale*self.scale), iH*self.scale, iW*self.scale
+        y = y.contiguous().view(B*oC, self.scale, self.scale, iH, iW)
+        y = y.permute(0, 3, 1, 4, 2)
+        y = y.contiguous().view(B, oC, oH, oW)
+        return y
+
 class Upsampler(nn.Sequential):
     def __init__(self, conv, scale, n_feat, bn=False, act=False, bias=True):
 
@@ -62,12 +77,12 @@ class Upsampler(nn.Sequential):
         if (scale & (scale - 1)) == 0:    # Is scale = 2^n?
             for _ in range(int(math.log(scale, 2))):
                 m.append(conv(n_feat, 4 * n_feat, 3, bias))
-                m.append(nn.PixelShuffle(2))
+                m.append(PixelShuffle(2))
                 if bn: m.append(nn.BatchNorm2d(n_feat))
                 if act: m.append(act())
         elif scale == 3:
             m.append(conv(n_feat, 9 * n_feat, 3, bias))
-            m.append(nn.PixelShuffle(3))
+            m.append(PixelShuffle(3))
             if bn: m.append(nn.BatchNorm2d(n_feat))
             if act: m.append(act())
         else:
