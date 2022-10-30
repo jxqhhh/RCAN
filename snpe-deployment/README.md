@@ -1,0 +1,1 @@
+In case that *snpe-onnx-to-dlc* warns that "... exceeds maximum image width 16384 for Adreno A650", you need to provide a smaller input size to the *torch.onnx.export* method. Otherwise, the output result may be very strange while you run the model on a real Qualcomm GPU.
