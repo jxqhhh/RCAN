@@ -37,13 +37,18 @@ args.print_model=False
 checkpoint = utility.checkpoint(args)
 m=model.Model(args,checkpoint)
 
-input_shape = [1, 3, 256, 256]
+print("hello1")
+
+input_shape = [1, 3, 32, 32]
 input_data = torch.randn(input_shape)
-script_model = torch.jit.trace(m.model, input_data)
+#script_model = torch.jit.trace(m.model, input_data)
 target_dir = "./dlc/pt"
 if not os.path.exists(target_dir):
     os.makedirs(target_dir)
-script_model.save(os.path.join(target_dir,"RCAN_BIX2.pt"))
+#script_model.save(os.path.join(target_dir,"RCAN_BIX2.pt"))
+print("hello2")
+
+torch.onnx.export(m.model, input_data, os.path.join(target_dir, "RCAN_BIX2.onnx"), input_names=["input.1"], output_names=["output.1"])
 
 # optional:
 #from DNN_printer import DNN_printer
