@@ -18,22 +18,12 @@ fi
 
 # convert onnx to dlc
 if [ ! -f "dlc/RCAN_BIX2.dlc" ]; then
-  snpe-pytorch-to-dlc --input_network dlc/pt/RCAN_BIX2.pt --input_dim input "1,3,256,256" --output_path dlc/RCAN_BIX2.dlc
+  snpe-onnx-to-dlc -i dlc/pt/RCAN_BIX2.onnx
+  cp dlc/pt/RCAN_BIX2.dlc dlc/pt/model.dlc
 fi
 
-# TODO: support quantize
-#if [ ! -d "images/Set5/LR/LRBI/x2/size256" ]; then
-#  mkdir -p images/Set5/LR/LRBI/x2/size256
-#  python create_RCAN_raws.py -d images/Set5/LR/LRBI/x2/size256 -s 256 -i ../RCAN_TestCode/LR/LRBI/Set5/x2
-#fi
+# we do not call snpe-dlc-quantize, since the output dlc outputs very strange results when we exucute it on Xiaomi 12S
+# here we directly use non-quantized dlc for DSP, as "SNPE will automatically quantize the network parameters in order to run on the DSP" (see https://developer.qualcomm.com/sites/default/files/docs/snpe/quantized_models.html)
 
-#rm -rf build
-#mkdir -p build/images
-#cp dlc/RCAN_BIX2.dlc build/model.dlc
-#cp images/Set5/LR/LRBI/x2/size256/*.jpg build/images
-#cd build
-zip -r rcan_bix2.zip *
-cd ..
-mv build/rcan_bix2.zip .
-rm -rf build
+# TODO: package images and dlc
 

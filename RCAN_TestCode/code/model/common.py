@@ -62,12 +62,30 @@ class PixelShuffle(nn.Module):
         self.scale=scale
 
     def forward(self, x):
+        '''
+        We use this complicated implementation since Hexagon AIP does not support 5D tensors (as warned by ``snpe-onnx-to-dlc``).
+
+        If you only want to execute the model on CPU or GPU, 
+        you just need to take care that (Qualcomm CPUs? and) Ardeno GPUs only support 1D-5D transpose op.
+        An alternative implementation would be:
         y=x
         B, iC, iH, iW = y.shape
         oC, oH, oW = iC//(self.scale*self.scale), iH*self.scale, iW*self.scale
         y = y.contiguous().view(B*oC, self.scale, self.scale, iH, iW)
         y = y.permute(0, 3, 1, 4, 2)
         y = y.contiguous().view(B, oC, oH, oW)
+        '''
+        y=x
+        B, iC, iH, iW = y.shape
+        y = torch.split(y, int(iC) // self.scale, 1) # see github.com/pytorch/pytorch/issues/27551
+        y = [sub.reshape(B, (iC*iH) // self.scale, iW, 1) for sub in list(y)]
+        y = torch.cat(tuple(y), 3)
+        y = y.reshape(B, iC // self.scale, iH, self.scale*iW)
+        y = torch.split(y, int(iC) // (self.scale*self.scale), 1)
+        y = [sub.permute(0, 1, 3, 2).reshape(B, iC*iW//self.scale, iH, 1) for sub in list(y)]
+        y = torch.cat(tuple(y), 3)
+        y = y.reshape(B, iC//(self.scale*self.scale), self.scale*int(iW), self.scale*iH)
+        y = y.permute(0, 1, 3, 2)
         return y
 
 class Upsampler(nn.Sequential):
