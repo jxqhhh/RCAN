@@ -66,7 +66,7 @@ class PixelShuffle(nn.Module):
         We use this complicated implementation since Hexagon AIP does not support 5D tensors (as warned by ``snpe-onnx-to-dlc``).
 
         If you only want to execute the model on CPU or GPU, 
-        you just need to take care that (Qualcomm CPUs? and) Ardeno GPUs only support 1D-5D transpose op.
+        you just need to take care that Qualcomm Kryo CPUs and Ardeno GPUs only support 1D-5D transpose op.
         An alternative implementation would be:
         y=x
         B, iC, iH, iW = y.shape
@@ -74,18 +74,17 @@ class PixelShuffle(nn.Module):
         y = y.contiguous().view(B*oC, self.scale, self.scale, iH, iW)
         y = y.permute(0, 3, 1, 4, 2)
         y = y.contiguous().view(B, oC, oH, oW)
+        return y
         '''
         y=x
         B, iC, iH, iW = y.shape
-        y = torch.split(y, int(iC) // self.scale, 1) # see github.com/pytorch/pytorch/issues/27551
-        y = [sub.reshape(B, (iC*iH) // self.scale, iW, 1) for sub in list(y)]
-        y = torch.cat(tuple(y), 3)
-        y = y.reshape(B, iC // self.scale, iH, self.scale*iW)
-        y = torch.split(y, int(iC) // (self.scale*self.scale), 1)
-        y = [sub.permute(0, 1, 3, 2).reshape(B, iC*iW//self.scale, iH, 1) for sub in list(y)]
-        y = torch.cat(tuple(y), 3)
-        y = y.reshape(B, iC//(self.scale*self.scale), self.scale*int(iW), self.scale*iH)
-        y = y.permute(0, 1, 3, 2)
+        oC, oH, oW = iC//(self.scale*self.scale), iH*self.scale, iW*self.scale
+        y = torch.split(y, self.scale*self.scale, 1)
+        y = [torch.split(sub, self.scale, 1) for sub in y]
+        y = [[subsub.permute(0, 2, 3, 1).reshape(B, iH, oW, 1) for subsub in sub] for sub in y]
+        y = [torch.cat(sub,3) for sub in y]
+        y = [sub.permute(0, 1, 3, 2).reshape(B, 1, oH, oW) for sub in y]
+        y = torch.cat(y, 1)
         return y
 
 class Upsampler(nn.Sequential):
