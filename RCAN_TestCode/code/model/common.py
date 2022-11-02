@@ -88,19 +88,22 @@ class PixelShuffle(nn.Module):
         return y
 
 class Upsampler(nn.Sequential):
-    def __init__(self, conv, scale, n_feat, bn=False, act=False, bias=True):
+    def __init__(self, conv, scale, n_feat, n_colors, bn=False, act=False, bias=True):
 
         m = []
-        if (scale & (scale - 1)) == 0:    # Is scale = 2^n?
-            for _ in range(int(math.log(scale, 2))):
-                m.append(conv(n_feat, 4 * n_feat, 3, bias))
-                m.append(PixelShuffle(2))
-                if bn: m.append(nn.BatchNorm2d(n_feat))
-                if act: m.append(act())
-        elif scale == 3:
-            m.append(conv(n_feat, 9 * n_feat, 3, bias))
-            m.append(PixelShuffle(3))
-            if bn: m.append(nn.BatchNorm2d(n_feat))
+        if scale == 4: # adapt to MobiSR
+            m.append(conv(n_feat, 4*n_colors, 3, bias))
+            m.append(PixelShuffle(2))
+            if bn: m.append(nn.BatchNorm2d(n_colors))
+            if act: m.append(act())
+            m.append(conv(n_colors, 4*n_colors, 3, bias))
+            m.append(PixelShuffle(2))
+            if bn: m.append(nn.BatchNorm2d(n_colors))
+            if act: m.append(act())
+        elif scale == 2:
+            m.append(conv(n_feat, 4*n_colors, 3, bias))
+            m.append(PixelShuffle(2))
+            if bn: m.append(nn.BatchNorm2d(n_colors))
             if act: m.append(act())
         else:
             raise NotImplementedError
