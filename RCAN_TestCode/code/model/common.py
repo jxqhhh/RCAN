@@ -110,6 +110,60 @@ class Upsampler(nn.Sequential):
 
         super(Upsampler, self).__init__(*m)
 
+## Used by the candidate model m_rn
+class rn_conv(nn.Module):
+    def __init__(self, in_channels, kernel_size, r, bias=True):
+        super(rn_conv, self).__init__()
+        if kernel_size % 2 == 0:
+            kernel_size -= 1
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels//r, 1, bias=bias),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels//r, in_channels//r, kernel_size, bias=bias, padding=kernel_size//2),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels//r, in_channels, 1, bias=bias)
+        )
+    
+    def forward(self, x):
+        y = self.conv(x)
+        y = y + x
+        return y
+
+## Used by the candidate model m_rxn
+class rxn_conv(nn.Module):
+    def __init__(self, in_channels, kernel_size, r, g, bias=True):
+        super(rxn_conv, self).__init__()
+        if kernel_size % 2 == 0:
+            kernel_size -= 1
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels//r, 1, bias=bias),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels//r, in_channels//r, kernel_size, bias=bias, padding=kernel_size//2, groups=g),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels//r, in_channels, 1, bias=bias)
+        )
+    
+    def forward(self, x):
+        y = self.conv(x)
+        y = y + x
+        return y
+
+## Used by the candidate model m_m1
+class m1_conv(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, bias=True):
+        super(m1_conv, self).__init__()
+        if kernel_size % 2 == 0:
+            kernel_size -= 1
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels, kernel_size, bias=bias, padding=kernel_size//2, groups=in_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels, out_channels, 1, bias=bias)
+        )
+
+    def forward(self, x):
+        y = self.conv(x)
+        return y
+
 ## add SELayer
 class SELayer(nn.Module):
     def __init__(self, channel, reduction=16):
