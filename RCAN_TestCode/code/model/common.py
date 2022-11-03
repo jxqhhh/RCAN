@@ -71,9 +71,9 @@ class PixelShuffle(nn.Module):
         y=x
         B, iC, iH, iW = y.shape
         oC, oH, oW = iC//(self.scale*self.scale), iH*self.scale, iW*self.scale
-        y = y.contiguous().view(B*oC, self.scale, self.scale, iH, iW)
+        y = y.contiguous().view(torch.tensor((B*oC, self.scale, self.scale, iH, iW)).tolist())
         y = y.permute(0, 3, 1, 4, 2)
-        y = y.contiguous().view(B, oC, oH, oW)
+        y = y.contiguous().view(torch.tensor((B, oC, oH, oW)).tolist())
         return y
         '''
         y=x
@@ -81,9 +81,9 @@ class PixelShuffle(nn.Module):
         oC, oH, oW = iC//(self.scale*self.scale), iH*self.scale, iW*self.scale
         y = torch.split(y, self.scale*self.scale, 1)
         y = [torch.split(sub, self.scale, 1) for sub in y]
-        y = [[subsub.permute(0, 2, 3, 1).reshape(B, iH, oW, 1) for subsub in sub] for sub in y]
+        y = [[subsub.permute(0, 2, 3, 1).reshape(torch.tensor((B, iH, oW, 1)).tolist()) for subsub in sub] for sub in y]
         y = [torch.cat(sub,3) for sub in y]
-        y = [sub.permute(0, 1, 3, 2).reshape(B, 1, oH, oW) for sub in y]
+        y = [sub.permute(0, 1, 3, 2).reshape(torch.tensor((B, 1, oH, oW)).tolist()) for sub in y]
         y = torch.cat(y, 1)
         return y
 
@@ -163,6 +163,107 @@ class m1_conv(nn.Module):
     def forward(self, x):
         y = self.conv(x)
         return y
+
+## Used by the model m_eff
+class eff_conv(nn.Module):
+    def __init__(self, in_channels, kernel_size, r=2, bias=True):
+        super(eff_conv, self).__init__()
+        if kernel_size % 2 == 0:
+            kernel_size -= 1
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels//r, 1, bias=bias),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels//r, in_channels//r, (1, kernel_size), bias=bias, padding=(0, kernel_size//2), groups=in_channels//r),
+            nn.Conv2d(in_channels//r, in_channels//r, (kernel_size, 1), bias=bias, padding=(kernel_size//2, 0), groups=in_channels//r),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels//r, in_channels, 1, bias=bias)
+        )
+
+    def forward(self, x):
+        y = self.conv(x)
+        y = y + x
+        return y
+
+## Optimized for mobile CPU/GPU/DSP
+class ChannelShuffle(nn.Module):
+    def __init__(self, groups):
+        super(ChannelShuffle, self).__init__()
+        self.groups = groups
+
+    def forward(self, x):
+        y = x
+        B, C, H, W = y.shape
+        '''
+        Export to onnx timeout if we do as follows:
+        y = torch.split(y, int(C//self.groups), 1)
+        y = torch.cat([torch.cat([sub[:,idx:idx+1,:,:] for sub in y], 1) for idx in range(C//self.groups)], 1)
+        '''
+        y = y.permute(0, 2, 3, 1) # we do this as Adreno GPUS have a limitation on width*depth (i.e., shape[-1]*shape[-2] for a 4-dim tensor)
+        shape = torch.tensor((B, H*W, self.groups, C//self.groups))
+        y = y.contiguous().view(shape.tolist()) # we do not directly use y.view((B, H*W, self.groups, C//self.groups)) because OnnxReshapeTranslation.extract_parameters does not support dynamic reshaping with a dynamically provided output shape
+        y = y.permute(0, 1, 3, 2)
+        shape = torch.tensor((B, H, W, C))
+        y = y.contiguous().view(shape.tolist())
+        y = y.permute(0, 3, 1, 2)
+        return y
+
+## Used by the model m_clc
+class clc_conv(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, g=16, bias=True):
+        super(clc_conv, self).__init__()
+        if kernel_size % 2 == 0:
+            kernel_size -= 1
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels, kernel_size, bias=bias, padding=kernel_size//2, groups=g),
+            ChannelShuffle(g),
+            nn.Conv2d(in_channels, out_channels, 1, bias=bias)
+        )
+
+    def forward(self, x):
+        y = self.conv(x)
+        return y
+
+## Used by the model m_s1
+class s1_conv(nn.Module):
+    def __init__(self, in_channels, kernel_size, r=2, g=4, bias=True):
+        super(s1_conv, self).__init__()
+        if kernel_size % 2 == 0:
+            kernel_size -= 1
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels//r, 1, bias=bias, groups=g),
+            nn.ReLU(inplace=True),
+            ChannelShuffle(g),
+            nn.Conv2d(in_channels//r, in_channels//r, kernel_size, groups=in_channels//r, padding=kernel_size//2),
+            nn.Conv2d(in_channels//r, in_channels, 1, groups=g)
+        )
+    
+    def forward(self, x):
+        y = self.conv(x)
+        y = y+x
+        return y
+
+## Used by the model m_s2
+class s2_conv(nn.Module):
+    def __init__(self, in_channels, kernel_size, bias=True):
+        super(s2_conv, self).__init__()
+        if kernel_size % 2 == 0:
+            kernel_size -= 1
+        self.in_channels = in_channels
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels//2, in_channels//2, 1, bias=bias),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels//2, in_channels//2, kernel_size, bias=bias, padding=kernel_size//2),
+            nn.Conv2d(in_channels//2, in_channels//2, 1, bias=bias)
+        )
+        self.shuffle = ChannelShuffle(2)
+    
+    def forward(self, x):
+        y1, y2 = torch.split(x, self.in_channels//2, 1)
+        y2 = self.conv(y2)
+        y = torch.cat((y1, y2), 1)
+        y = self.shuffle(y)
+        return y
+
 
 ## add SELayer
 class SELayer(nn.Module):
