@@ -164,6 +164,26 @@ class m1_conv(nn.Module):
         y = self.conv(x)
         return y
 
+## Used by the candidate model m_m2
+class m2_conv(nn.Module):
+    def __init__(self, in_channels, kernel_size, e, bias=True):
+        super(m2_conv, self).__init__()
+        if kernel_size % 2 == 0:
+            kernel_size -= 1
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels * e, 1, bias=bias),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels * e, in_channels * e, kernel_size, padding=kernel_size//2, bias=bias, groups=in_channels * e),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels * e, in_channels, 1, bias=bias),
+        )
+
+    def forward(self, x):
+        y = self.conv(x)
+        y = y + x
+        return y
+
+
 ## Used by the model m_eff
 class eff_conv(nn.Module):
     def __init__(self, in_channels, kernel_size, r=2, bias=True):
@@ -193,14 +213,9 @@ class ChannelShuffle(nn.Module):
     def forward(self, x):
         y = x
         B, C, H, W = y.shape
-        '''
-        Export to onnx timeout if we do as follows:
-        y = torch.split(y, int(C//self.groups), 1)
-        y = torch.cat([torch.cat([sub[:,idx:idx+1,:,:] for sub in y], 1) for idx in range(C//self.groups)], 1)
-        '''
         y = y.permute(0, 2, 3, 1) # we do this as Adreno GPUS have a limitation on width*depth (i.e., shape[-1]*shape[-2] for a 4-dim tensor)
         shape = torch.tensor((B, H*W, self.groups, C//self.groups))
-        y = y.contiguous().view(shape.tolist()) # we do not directly use y.view((B, H*W, self.groups, C//self.groups)) because OnnxReshapeTranslation.extract_parameters does not support dynamic reshaping with a dynamically provided output shape
+        y = y.contiguous().view(shape.tolist()) # we do not directly use y.view((B, H*W, self., C//self.)) because OnnxReshapeTranslation.extract_parameters does not support dynamic reshaping with a dynamically provided output shape
         y = y.permute(0, 1, 3, 2)
         shape = torch.tensor((B, H, W, C))
         y = y.contiguous().view(shape.tolist())

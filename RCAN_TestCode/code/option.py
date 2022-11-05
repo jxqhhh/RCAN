@@ -51,9 +51,10 @@ parser.add_argument('--chop', action='store_true',
                     help='enable memory-efficient forward')
 
 # Model specifications
+parser.add_argument('--conv', default='default',
+                    help='used for specifying the candidate model in MobiSR')
 parser.add_argument('--model', default='EDSR',
                     help='model name')
-
 parser.add_argument('--act', type=str, default='relu',
                     help='activation function')
 parser.add_argument('--pre_train', type=str, default='.',
