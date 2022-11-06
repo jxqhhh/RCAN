@@ -18,3 +18,7 @@ CUDA_VISIBLE_DEVICES=0 python main.py --model RCAN --save RCAN_BIX4_G10R20P48 --
 LOG=./../experiment/RCAN_BIX8_G10R20P48-`date +%Y-%m-%d-%H-%M-%S`.txt
 CUDA_VISIBLE_DEVICES=0 python main.py --model RCAN --save RCAN_BIX8_G10R20P48 --scale 8 --n_resgroups 10 --n_resblocks 20 --n_feats 64  --reset --chop --save_results --print_model --patch_size 384 --pre_train ../experiment/model/RCAN_BIX2.pt 2>&1 | tee $LOG
 
+# Train for MobiSR
+# First train x2 models:
+LOG=./../experiment/m_ref-`date +%Y-%m-%d-%H-%M-%S`.txt
+CUDA_VISIBLE_DEVICES=0 python main.py --model RCAN --conv default --save m_ref_x2 --scale 2 --n_resgroups 3 --n_resblocks 10 --n_feats 16  --reset --chop --save_results --print_model --patch_size 192 2>&1 | tee $LOG
