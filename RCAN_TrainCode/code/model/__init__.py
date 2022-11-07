@@ -54,10 +54,7 @@ class Model(nn.Module):
             return self.model(x)
 
     def get_model(self):
-        if self.n_GPUs == 1:
-            return self.model
-        else:
-            return self.model.module
+        return self.model
 
     def state_dict(self, **kwargs):
         target = self.get_model()
@@ -110,7 +107,7 @@ class Model(nn.Module):
                 ),
                 strict=False
             )
-
+    # shave = 10, min_size=160000
     def forward_chop(self, x, shave=10, min_size=160000):
         scale = self.scale[self.idx_scale]
         n_GPUs = min(self.n_GPUs, 4)
