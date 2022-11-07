@@ -30,7 +30,6 @@ class Trainer():
         self.error_last = 1e8
 
     def train(self):
-        self.scheduler.step()
         self.loss.step()
         epoch = self.scheduler.last_epoch + 1
         lr = self.scheduler.get_lr()[0]
@@ -69,6 +68,8 @@ class Trainer():
                     timer_data.release()))
 
             timer_data.tic()
+
+        self.scheduler.step()
 
         self.loss.end_log(len(self.loader_train))
         self.error_last = self.loss.log[-1, -1]

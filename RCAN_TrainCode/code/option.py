@@ -19,7 +19,7 @@ parser.add_argument('--seed', type=int, default=1,
                     help='random seed')
 
 # Data specifications
-parser.add_argument('--dir_data', type=str, default='/home/yulun/data/SR/traindata/DIV2K/bicubic',
+parser.add_argument('--dir_data', type=str, default='/home/jinxinqi/SuperResolution/data',
                     help='dataset directory')
 parser.add_argument('--dir_demo', type=str, default='../test',
                     help='demo image directory')
@@ -51,9 +51,10 @@ parser.add_argument('--chop', action='store_true',
                     help='enable memory-efficient forward')
 
 # Model specifications
+parser.add_argument('--conv', default='default',
+                    help='used for specifying the candidate model in MobiSR')
 parser.add_argument('--model', default='RCAN',
                     help='model name')
-
 parser.add_argument('--act', type=str, default='relu',
                     help='activation function')
 parser.add_argument('--pre_train', type=str, default='.',
