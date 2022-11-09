@@ -139,8 +139,6 @@ class RCAN(nn.Module):
         self.tail = nn.Sequential(*modules_tail)
 
     def forward(self, x):
-
-        print(x.shape)
         
         x = self.sub_mean(x)
         x = self.head(x)
@@ -150,8 +148,6 @@ class RCAN(nn.Module):
 
         x = self.tail(res)
         x = self.add_mean(x)
-
-        print(x.shape)
 
         return x 
 

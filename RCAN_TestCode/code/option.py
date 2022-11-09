@@ -19,7 +19,7 @@ parser.add_argument('--seed', type=int, default=1,
                     help='random seed')
 
 # Data specifications
-parser.add_argument('--dir_data', type=str, default='/home/yulun/data/PyTorch/npy',
+parser.add_argument('--dir_data', type=str, default='/home/jinxinqi/SuperResolution/data',
                     help='dataset directory')
 parser.add_argument('--dir_demo', type=str, default='../test',
                     help='demo image directory')
@@ -31,7 +31,7 @@ parser.add_argument('--benchmark_noise', action='store_true',
                     help='use noisy benchmark sets')
 parser.add_argument('--n_train', type=int, default=800,
                     help='number of training set')
-parser.add_argument('--n_val', type=int, default=10,
+parser.add_argument('--n_val', type=int, default=5,
                     help='number of validation set')
 parser.add_argument('--offset_val', type=int, default=800,
                     help='validation index offest')
@@ -148,7 +148,17 @@ parser.add_argument('--testset', type=str, default='Set5',
 parser.add_argument('--degradation', type=str, default='BI',
                     help='degradation model: BI, BD')
 
-                    
+# Options for TV analysis
+parser.add_argument('--weak_model_conv', default='rn(r=2)',
+                    help='used for specifying the weak model m2 in MobiSR')
+parser.add_argument('--weak_model_pre_train', type=str, default='.',
+                    help='pre-trained weak model m2 directory')
+parser.add_argument('--threshold', type=float, default=5,
+                    help="threshold for switching between model m1 and m2")
+parser.add_argument('--patch_height', type=int, default=90)
+parser.add_argument('--patch_width', type=int, default=160)
+parser.add_argument('--overlapping_size', type=int, default=10)
+
 args = parser.parse_args()
 template.set_template(args)
 

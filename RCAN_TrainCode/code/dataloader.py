@@ -50,76 +50,6 @@ def _ms_loop(dataset, index_queue, data_queue, collate_fn, scale, seed, init_fn,
 
 class _MSDataLoaderIter(_BaseDataLoaderIter):
     def __init__(self, loader):
-        '''
-        self.dataset = loader.dataset
-        self.scale = loader.scale
-        self.collate_fn = loader.collate_fn
-        self.batch_sampler = loader.batch_sampler
-        self.num_workers = loader.num_workers
-        self.pin_memory = loader.pin_memory and torch.cuda.is_available()
-        self.timeout = loader.timeout
-        self.done_event = threading.Event()
-
-        self.sample_iter = iter(self.batch_sampler)
-
-        if self.num_workers > 0:
-            self.worker_init_fn = loader.worker_init_fn
-            self.index_queues = [
-                multiprocessing.Queue() for _ in range(self.num_workers)
-            ]
-            self.worker_queue_idx = 0
-            self.worker_result_queue = multiprocessing.Queue()
-            self.batches_outstanding = 0
-            self.worker_pids_set = False
-            self.shutdown = False
-            self.send_idx = 0
-            self.rcvd_idx = 0
-            self.reorder_dict = {}
-
-            base_seed = torch.LongTensor(1).random_()[0]
-            self.workers = [
-                multiprocessing.Process(
-                    target=_ms_loop,
-                    args=(
-                        self.dataset,
-                        self.index_queues[i],
-                        self.worker_result_queue,
-                        self.collate_fn,
-                        self.scale,
-                        base_seed + i,
-                        self.worker_init_fn,
-                        i
-                    )
-                )
-                for i in range(self.num_workers)]
-
-            if self.pin_memory or self.timeout > 0:
-                self.data_queue = queue.Queue()
-                if self.pin_memory:
-                    maybe_device_id = torch.cuda.current_device()
-                else:
-                    # do not initialize cuda context if not necessary
-                    maybe_device_id = None
-                self.pin_memory_thread = threading.Thread(
-                    target=_utils.pin_memory._pin_memory_loop,
-                    args=(self.worker_result_queue, self.data_queue, maybe_device_id, self.done_event))
-                self.pin_memory_thread.daemon = True
-                self.pin_memory_thread.start()
-            else:
-                self.data_queue = self.worker_result_queue
-
-            for w in self.workers:
-                w.daemon = True  # ensure that the worker exits on process exit
-                w.start()
-                
-            _utils.signal_handling._set_worker_pids(id(self), tuple(w.pid for w in self.workers))
-            _utils.signal_handling._set_SIGCHLD_handler()
-            self.worker_pids_set = True
-
-            # prime the prefetch loop
-            for _ in range(2 * self.num_workers):
-                self._try_put_index()
-        '''
         super(_MSDataLoaderIter, self).__init__(loader)
 
         self.dataset = loader.dataset
@@ -193,7 +123,6 @@ class _MSDataLoaderIter(_BaseDataLoaderIter):
             self._pin_memory_thread = pin_memory_thread
         else:
             self._data_queue = self._worker_result_queue
-        print("init again")
         _utils.signal_handling._set_worker_pids(id(self), tuple(w.pid for w in self._workers))
         _utils.signal_handling._set_SIGCHLD_handler()
         self._worker_pids_set = True
@@ -418,7 +347,6 @@ class _MSDataLoaderIter(_BaseDataLoaderIter):
     def __del__(self):
         self._shutdown_workers()
     
-
 class MSDataLoader(DataLoader):
     def __init__(
         self, args, dataset, batch_size=1, shuffle=False,

@@ -193,7 +193,6 @@ class _MSDataLoaderIter(_BaseDataLoaderIter):
             self._pin_memory_thread = pin_memory_thread
         else:
             self._data_queue = self._worker_result_queue
-        print("init again")
         _utils.signal_handling._set_worker_pids(id(self), tuple(w.pid for w in self._workers))
         _utils.signal_handling._set_SIGCHLD_handler()
         self._worker_pids_set = True
