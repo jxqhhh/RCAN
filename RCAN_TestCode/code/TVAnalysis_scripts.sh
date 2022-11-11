@@ -1,0 +1,2 @@
+# TV analysis
+CUDA_VISIBLE_DEVICES=0 python tv_analysis.py --data_test DIV2K --scale 2 --model RCAN --resume 0 --n_resgroups 3 --n_resblocks 10 --n_feats 16 --pre_train "/home/jinxinqi/SuperResolution/RCAN/RCAN_TrainCode/experiment/default_x2/model/model_best.pt" --conv "default" --weak_model_pre_train "/home/jinxinqi/SuperResolution/RCAN/RCAN_TrainCode/experiment/rn(r=4)_x2/model/model_best.pt" --weak_model_conv "rn(r=4)" --threshold 10

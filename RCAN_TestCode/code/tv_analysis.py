@@ -15,6 +15,11 @@ import utility
 import torch
 from torch.autograd import Variable
 from tqdm import tqdm
+import imageio
+
+CPU_latency = 154.8
+GPU_latency = 226.8
+DSP_latency = 32.4
 
 class TVAnalyzer():
     def __init__(self, args, loader, my_model, my_weak_model, ckp):
@@ -37,9 +42,12 @@ class TVAnalyzer():
         with torch.no_grad():
             for idx_scale, scale in enumerate(self.scale):
                 eval_acc = 0
+                eval_latency = 0
                 self.loader_test.dataset.set_scale(idx_scale)
                 tqdm_test = tqdm(self.loader_test, ncols=80)
                 for idx_img, (lr, hr, filename, _) in enumerate(tqdm_test):
+
+                    time_cpu = time_gpu = time_dsp = 0
 
                     filename = filename[0]
                     no_eval = (hr.nelement() == 1)
@@ -51,15 +59,15 @@ class TVAnalyzer():
                     
 
                     # Divide lr into patches
-                    row_num = ceil(lr.shape[2]/(self.args.patch_height-self.args.overlapping_size))
-                    col_num = ceil(lr.shape[3]/(self.args.patch_width-self.args.overlapping_size))
+                    row_num = ceil((lr.shape[2]-self.args.overlapping_size)/(self.args.patch_height-self.args.overlapping_size))
+                    col_num = ceil((lr.shape[3]-self.args.overlapping_size)/(self.args.patch_width-self.args.overlapping_size))
 
                     for rowIdx in range(row_num):
                         for colIdx in range(col_num):
                             row_start = rowIdx*(self.args.patch_height-self.args.overlapping_size)
-                            row_end = min((rowIdx+1)*(self.args.patch_height-self.args.overlapping_size), lr.shape[2])
+                            row_end = min(rowIdx*(self.args.patch_height-self.args.overlapping_size)+self.args.patch_height, lr.shape[2])
                             col_start = colIdx*(self.args.patch_width-self.args.overlapping_size)
-                            col_end = min((colIdx+1)*(self.args.patch_width-self.args.overlapping_size), lr.shape[3])
+                            col_end = min(colIdx*(self.args.patch_width-self.args.overlapping_size)+self.args.patch_width, lr.shape[3])
                             lr_patch = lr[:, :, row_start:row_end, col_start:col_end]
                             
                             def calcTV(patch):
@@ -77,19 +85,28 @@ class TVAnalyzer():
                             print("TV={} threshold={}".format(TV, self.args.threshold))
                             if TV < self.args.threshold:
                                 sr_patch = self.model(lr_patch, idx_scale)
+                                if time_cpu + CPU_latency < time_gpu + GPU_latency:
+                                    time_cpu += CPU_latency
+                                else:
+                                    time_gpu += GPU_latency
                             else:
                                 sr_patch = self.weak_model(lr_patch, idx_scale)
+                                time_dsp += DSP_latency
 
                             sr[:, :, scale*row_start:scale*row_end, scale*col_start:scale*col_end] += sr_patch
 
+                    
+
+                    eval_latency += max(time_cpu, time_gpu, time_dsp)
+                    
                     for rowIdx in range(row_num-1):
                         row_start = scale*(rowIdx+1)*(self.args.patch_height-self.args.overlapping_size)
                         row_end = row_start+scale*self.args.overlapping_size
-                        sr_patch[:, :, row_start:row_end, :] /= 2
+                        sr[:, :, row_start:row_end, :] /= 2
                     for colIdx in range(col_num-1):
                         col_start = scale*(colIdx+1)*(self.args.patch_width-self.args.overlapping_size)
                         col_end = col_start+scale*self.args.overlapping_size
-                        sr_patch[:, :, :, col_start:col_end] /= 2
+                        sr[:, :, :, col_start:col_end] /= 2
                     
                     sr = utility.quantize(sr, self.args.rgb_range)
 
@@ -100,6 +117,8 @@ class TVAnalyzer():
                             benchmark=self.loader_test.dataset.benchmark
                         )
                         save_list.extend([lr, hr])
+                    
+                    imageio.imsave('{}.png'.format(idx_img), sr[0].byte().permute(1, 2, 0).cpu().numpy())
 
                     #if self.args.save_results:
                         #self.ckp.save_results_nopostfix(filename, save_list, scale) #TODO
@@ -107,10 +126,11 @@ class TVAnalyzer():
                 #self.ckp.log[-1, idx_scale] = eval_acc / len(self.loader_test) #TODO
                 #best = self.ckp.log.max(0) #TODO
                 print( 
-                    '[{} x{}]\tPSNR: {:.3f}'.format(
+                    '[{} x{}]\tPSNR: {:.3f}\tLatency:{}'.format(
                         self.args.data_test,
                         scale,
-                        eval_acc / len(self.loader_test)
+                        eval_acc / len(self.loader_test),
+                        eval_latency / len(self.loader_test)
                     )
                 ) #TODO
 
